@@ -1,0 +1,21 @@
+# Maintainer: openOODA-tools <ops@openooda.org>
+pkgname=oocut-bin
+_pkgname=oocut
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Byte, character, and delimiter-aware field extractor with negative-index slicing."
+arch=('x86_64')
+url="https://github.com/openOODA-tools/oocut"
+license=('Apache-2.0')
+depends=('glibc')
+provides=('oocut')
+conflicts=('oocut')
+source_x86_64=("${url}/releases/download/v${pkgver}/oocut-linux-x86_64"
+               "uninstall.sh::https://raw.githubusercontent.com/openOODA-tools/${_pkgname}/v${pkgver}/uninstall.sh")
+sha256sums_x86_64=('SKIP'
+                   'SKIP')
+
+package() {
+    install -Dm755 "${srcdir}/oocut-linux-x86_64" "${pkgdir}/usr/bin/oocut"
+    install -Dm755 uninstall.sh "${pkgdir}/usr/bin/oocut-uninstall"
+}
