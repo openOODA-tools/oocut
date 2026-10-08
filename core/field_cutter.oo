@@ -1,0 +1,116 @@
+// # oocut Delimiter Field Extractor
+//
+// Logline: Extracts delimiter-separated fields from text streams with POSIX passthrough semantics.
+//
+// Setup: Demands no ambient authority; parses delimited columns adhering to POSIX specification.
+//
+// Beats:
+//   1. Detect presence of delimiter byte within stream line buffers.
+//   2. Pass through un-delimited lines unless only_delimited suppression is active.
+//   3. Partition delimited lines into discrete field array items.
+//   4. Reassemble selected fields using input or custom output delimiters.
+
+import "core/cut_types.oo";
+import "core/range_parser.oo";
+
+pub type FieldCutResult = struct {
+    output: String,
+    suppress: Bool
+};
+
+pub fn delim_to_string(b: Int) -> String {
+    if b == 9 {
+        return "\t";
+    }
+    if b == 44 {
+        return ",";
+    }
+    if b == 58 {
+        return ":";
+    }
+    if b == 59 {
+        return ";";
+    }
+    if b == 124 {
+        return "|";
+    }
+    if b == 32 {
+        return " ";
+    }
+    let ascii: String = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
+    if b >= 32 && b <= 126 {
+        return str_slice(ascii, b - 32, b - 31);
+    }
+    return "\t";
+}
+
+fn line_has_delim(line: String, delim: Int) -> Bool {
+    let n: Int = chars_len(line);
+    let mut i: Int = 0;
+    while i < n {
+        if byte_at(line, i) == delim {
+            return true;
+        }
+        i = i + 1;
+    }
+    return false;
+}
+
+fn split_line_fields(line: String, delim: Int) -> List[String] {
+    let mut out: List[String] = list_new();
+    let n: Int = chars_len(line);
+    let mut start: Int = 0;
+    let mut i: Int = 0;
+    while i < n {
+        if byte_at(line, i) == delim {
+            out = list_push(out, str_slice(line, start, i));
+            start = i + 1;
+        }
+        i = i + 1;
+    }
+    out = list_push(out, str_slice(line, start, n));
+    return out;
+}
+
+pub fn cut_line_fields(
+    line: String,
+    ranges: List[CutRange],
+    delim: Int,
+    complement: Bool,
+    only_delim: Bool,
+    out_delim: String
+) -> FieldCutResult {
+    let has_d: Bool = line_has_delim(line, delim);
+    if !has_d {
+        if only_delim {
+            return FieldCutResult { output: "", suppress: true };
+        }
+        return FieldCutResult { output: line, suppress: false };
+    }
+
+    let eff_delim: String = if chars_len(out_delim) > 0 {
+        out_delim
+    } else {
+        delim_to_string(delim)
+    };
+
+    let fields: List[String] = split_line_fields(line, delim);
+    let num_fields: Int = list_len(fields);
+    let mut out: String = "";
+    let mut first: Bool = true;
+
+    let mut i: Int = 0;
+    while i < num_fields {
+        let f_idx: Int = i + 1;
+        if idx_matches_ranges(f_idx, ranges, complement) {
+            if !first {
+                out = out + eff_delim;
+            }
+            out = out + list_get(fields, i);
+            first = false;
+        }
+        i = i + 1;
+    }
+
+    return FieldCutResult { output: out, suppress: false };
+}

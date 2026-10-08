@@ -1,0 +1,78 @@
+// # oocut Theme Palette Subsystem
+//
+// Logline: Terminal color themes and ANSI style definitions for formatted presentation.
+//
+// Setup: Demands no ambient authority; maps theme names to verified ANSI escape sequences.
+//
+// Beats:
+//   1. Declare ThemePalette structure defining terminal colors.
+//   2. Define ember, ocean, matrix, cyber, and monochrome themes.
+//   3. Implement get_theme selector with graceful fallback.
+//   4. Expose clean ANSI reset formatting strings.
+
+pub type ThemePalette = struct {
+    name: String,
+    accent: String,
+    primary: String,
+    secondary: String,
+    muted: String,
+    reset: String
+};
+
+pub fn get_theme(name: String) -> ThemePalette {
+    let r: String = "\x1b[0m";
+
+    if name == "ocean" {
+        return ThemePalette {
+            name: "ocean",
+            accent: "\x1b[38;5;39m",
+            primary: "\x1b[38;5;81m",
+            secondary: "\x1b[38;5;123m",
+            muted: "\x1b[38;5;244m",
+            reset: r
+        };
+    }
+
+    if name == "matrix" {
+        return ThemePalette {
+            name: "matrix",
+            accent: "\x1b[38;5;46m",
+            primary: "\x1b[38;5;82m",
+            secondary: "\x1b[38;5;118m",
+            muted: "\x1b[38;5;240m",
+            reset: r
+        };
+    }
+
+    if name == "cyber" {
+        return ThemePalette {
+            name: "cyber",
+            accent: "\x1b[38;5;198m",
+            primary: "\x1b[38;5;51m",
+            secondary: "\x1b[38;5;226m",
+            muted: "\x1b[38;5;242m",
+            reset: r
+        };
+    }
+
+    if name == "monochrome" {
+        return ThemePalette {
+            name: "monochrome",
+            accent: "\x1b[1m",
+            primary: "",
+            secondary: "",
+            muted: "",
+            reset: r
+        };
+    }
+
+    // Default: ember
+    return ThemePalette {
+        name: "ember",
+        accent: "\x1b[38;5;208m",
+        primary: "\x1b[38;5;214m",
+        secondary: "\x1b[38;5;220m",
+        muted: "\x1b[38;5;243m",
+        reset: r
+    };
+}

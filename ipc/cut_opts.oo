@@ -1,0 +1,170 @@
+// # oocut CLI Options Parser
+//
+// Logline: Argument parser mapping command-line switches, extraction modes, and delimiters to CutConfig records.
+//
+// Setup: Demands no ambient authority; parses raw string argument arrays into structured configs.
+//
+// Beats:
+//   1. Declare ParsedCut container holding CutConfig and operational control flags.
+//   2. Parse byte (-b), character (-c), and field (-f) range interval arguments.
+//   3. Parse delimiter switches, output separators, complement flag, and suppression modes.
+//   4. Deliver standard POSIX-compliant usage help text.
+
+import "core/cut_types.oo";
+import "core/range_parser.oo";
+
+pub type ParsedCut = struct {
+    config: CutConfig,
+    show_help: Bool,
+    show_version: Bool,
+    run_mcp: Bool,
+    run_test: Bool,
+    parse_error: String
+};
+
+fn parse_delim_arg(s: String) -> Int {
+    if s == "\\t" || s == "tab" {
+        return 9;
+    }
+    if s == "\\0" || s == "null" {
+        return 0;
+    }
+    if chars_len(s) > 0 {
+        return byte_at(s, 0);
+    }
+    return 9;
+}
+
+pub fn parse_cut_args(args: List[String]) -> ParsedCut {
+    let mut cfg: CutConfig = default_cut_config();
+    let mut show_help: Bool = false;
+    let mut show_version: Bool = false;
+    let mut run_mcp: Bool = false;
+    let mut run_test: Bool = false;
+    let mut parse_error: String = "";
+
+    let num_args: Int = list_len(args);
+    let mut i: Int = 0;
+
+    while i < num_args {
+        let arg: String = list_get(args, i);
+
+        if arg == "-h" || arg == "--help" {
+            show_help = true;
+        } else if arg == "-v" || arg == "--version" {
+            show_version = true;
+        } else if arg == "--mcp" {
+            run_mcp = true;
+        } else if arg == "--test" {
+            run_test = true;
+        } else if arg == "-j" || arg == "--json" {
+            cfg.json_output = true;
+        } else if arg == "-D" || arg == "--demo" {
+            cfg.demo_mode = true;
+        } else if arg == "-s" || arg == "--only-delimited" {
+            cfg.only_delimited = true;
+        } else if arg == "--complement" {
+            cfg.complement = true;
+        } else if arg == "-z" || arg == "--zero-terminated" {
+            cfg.zero_terminated = true;
+        } else if arg == "-b" || arg == "--bytes" {
+            cfg.mode = "bytes";
+            if i + 1 < num_args {
+                i = i + 1;
+                cfg.ranges = parse_range_list(list_get(args, i));
+            } else {
+                parse_error = "-b/--bytes requires a list of byte positions or ranges";
+            }
+        } else if str_starts_with(arg, "--bytes=") {
+            cfg.mode = "bytes";
+            let val_str: String = str_slice(arg, 8, chars_len(arg));
+            cfg.ranges = parse_range_list(val_str);
+        } else if arg == "-c" || arg == "--characters" {
+            cfg.mode = "chars";
+            if i + 1 < num_args {
+                i = i + 1;
+                cfg.ranges = parse_range_list(list_get(args, i));
+            } else {
+                parse_error = "-c/--characters requires a list of character positions or ranges";
+            }
+        } else if str_starts_with(arg, "--characters=") {
+            cfg.mode = "chars";
+            let val_str: String = str_slice(arg, 13, chars_len(arg));
+            cfg.ranges = parse_range_list(val_str);
+        } else if arg == "-f" || arg == "--fields" {
+            cfg.mode = "fields";
+            if i + 1 < num_args {
+                i = i + 1;
+                cfg.ranges = parse_range_list(list_get(args, i));
+            } else {
+                parse_error = "-f/--fields requires a list of field indices or ranges";
+            }
+        } else if str_starts_with(arg, "--fields=") {
+            cfg.mode = "fields";
+            let val_str: String = str_slice(arg, 9, chars_len(arg));
+            cfg.ranges = parse_range_list(val_str);
+        } else if arg == "-d" || arg == "--delimiter" {
+            if i + 1 < num_args {
+                i = i + 1;
+                cfg.delimiter = parse_delim_arg(list_get(args, i));
+                cfg.has_custom_delim = true;
+            } else {
+                parse_error = "-d/--delimiter requires a separator character";
+            }
+        } else if str_starts_with(arg, "--delimiter=") {
+            let val_str: String = str_slice(arg, 12, chars_len(arg));
+            cfg.delimiter = parse_delim_arg(val_str);
+            cfg.has_custom_delim = true;
+        } else if arg == "--output-delimiter" {
+            if i + 1 < num_args {
+                i = i + 1;
+                cfg.output_delimiter = list_get(args, i);
+            } else {
+                parse_error = "--output-delimiter requires a delimiter string";
+            }
+        } else if str_starts_with(arg, "--output-delimiter=") {
+            cfg.output_delimiter = str_slice(arg, 19, chars_len(arg));
+        } else if arg == "--theme" {
+            if i + 1 < num_args {
+                i = i + 1;
+                cfg.theme = list_get(args, i);
+            }
+        } else if str_starts_with(arg, "-") && arg != "-" {
+            parse_error = "Unknown option: " + arg;
+        } else if chars_len(cfg.input_file) == 0 {
+            cfg.input_file = arg;
+        }
+
+        i = i + 1;
+    }
+
+    return ParsedCut {
+        config: cfg,
+        show_help: show_help,
+        show_version: show_version,
+        run_mcp: run_mcp,
+        run_test: run_test,
+        parse_error: parse_error
+    };
+}
+
+pub fn render_cut_help() -> String {
+    let mut out: String = "Usage: oocut [OPTIONS] [FILE]\n\n";
+    out = out + "Byte, character, and delimiter-aware field stream extractor in pure openOODA.\n\n";
+    out = out + "Options:\n";
+    out = out + "  -b, --bytes <LIST>          Select only these 1-based byte positions\n";
+    out = out + "  -c, --characters <LIST>     Select only these 1-based UTF-8 character positions\n";
+    out = out + "  -f, --fields <LIST>         Select only these delimiter-separated fields [default: 1-]\n";
+    out = out + "  -d, --delimiter <CHAR>      Field delimiter character [default: TAB]\n";
+    out = out + "      --output-delimiter <S>  String used for output delimiter [default: input delimiter]\n";
+    out = out + "      --complement            Invert the selection: output elements NOT selected\n";
+    out = out + "  -s, --only-delimited        Do not print lines containing no delimiters\n";
+    out = out + "  -z, --zero-terminated       Line delimiter is NUL (\\0), not newline (\\n)\n";
+    out = out + "  -j, --json                  Format output as structured JSON records\n";
+    out = out + "  -D, --demo                  Execute demonstration pipeline on synthetic passwd & TSV data\n";
+    out = out + "      --theme <THEME>         Select terminal color theme (ember, ocean, matrix, cyber, monochrome)\n";
+    out = out + "      --mcp                   Run streaming Model Context Protocol (MCP) stdio server\n";
+    out = out + "  -h, --help                  Show this help message and exit\n";
+    out = out + "  -v, --version               Show version information and exit\n";
+    return out;
+}

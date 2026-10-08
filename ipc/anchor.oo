@@ -1,0 +1,136 @@
+// # oocut IPC Test Anchor
+//
+// Logline: Test verification anchor for CLI options, JSON parsing utilities, and streaming MCP protocol handling.
+//
+// Setup: Demands no ambient authority; exercises CLI parsing and JSON-RPC dispatch in isolation.
+//
+// Beats:
+//   1. Verify JSON escaping and field extraction routines.
+//   2. Verify CLI argument parsing for byte, character, and field switches.
+//   3. Verify MCP initialization and tool catalog frames.
+//   4. Deliver unified IPC test runner returning boolean status.
+
+import "ipc/json_field.oo";
+import "ipc/cut_opts.oo";
+import "ipc/mcp_serve.oo";
+
+pub fn test_json_field() -> Bool {
+    let esc: String = json_escape("foo\nbar\t\"baz\"");
+    if !str_contains(esc, "\\n") || !str_contains(esc, "\\\"") {
+        print("FAIL: json_escape invalid\n");
+        return false;
+    }
+
+    let unesc: String = json_unescape("hello\\nworld\\\"test\\\"");
+    if !str_contains(unesc, "hello\nworld\"test\"") {
+        print("FAIL: json_unescape invalid\n");
+        return false;
+    }
+
+    let json_doc: String = "{\"method\":\"tools/call\",\"name\":\"cut_fields\",\"id\":42}";
+    let m: String = extract_json_str(json_doc, "method");
+    let name: String = extract_json_str(json_doc, "name");
+    if m != "tools/call" || name != "cut_fields" {
+        print("FAIL: extract_json_str failed\n");
+        return false;
+    }
+
+    let b_doc: String = "{\"only_delimited\":true,\"complement\":false}";
+    if !extract_json_bool(b_doc, "only_delimited", false) {
+        print("FAIL: extract_json_bool only_delimited failed\n");
+        return false;
+    }
+    if extract_json_bool(b_doc, "complement", true) {
+        print("FAIL: extract_json_bool complement failed\n");
+        return false;
+    }
+
+    let greek_doc: String = "{\"name\":\"cut_characters\",\"data\":\"αβγδ\",\"characters\":\"1-2\"}";
+    let g_name: String = extract_json_str(greek_doc, "name");
+    let g_data: String = extract_json_str(greek_doc, "data");
+    let g_chars: String = extract_json_str(greek_doc, "characters");
+    if g_name != "cut_characters" || g_data != "αβγδ" || g_chars != "1-2" {
+        print("FAIL: extract_json_str greek failed: name=" + g_name + " data=" + g_data + " chars=" + g_chars + "\n");
+        return false;
+    }
+    return true;
+}
+
+pub fn test_cut_opts() -> Bool {
+    let mut args: List[String] = list_new();
+    args = list_push(args, "-f");
+    args = list_push(args, "1,3,5");
+    args = list_push(args, "-d");
+    args = list_push(args, ":");
+    args = list_push(args, "--output-delimiter=,");
+    args = list_push(args, "-s");
+    args = list_push(args, "passwd.txt");
+
+    let p: ParsedCut = parse_cut_args(args);
+    if p.config.mode != "fields" {
+        print("FAIL: mode mismatch\n");
+        return false;
+    }
+    if p.config.delimiter != 58 {
+        print("FAIL: delimiter mismatch\n");
+        return false;
+    }
+    if p.config.output_delimiter != "," {
+        print("FAIL: output_delimiter mismatch\n");
+        return false;
+    }
+    if !p.config.only_delimited {
+        print("FAIL: only_delimited mismatch\n");
+        return false;
+    }
+    if p.config.input_file != "passwd.txt" {
+        print("FAIL: input_file mismatch\n");
+        return false;
+    }
+
+    let help: String = render_cut_help();
+    if !str_contains(help, "Usage: oocut") {
+        print("FAIL: help text mismatch\n");
+        return false;
+    }
+    return true;
+}
+
+pub fn test_mcp_frames() -> Bool {
+    let init_resp: String = render_mcp_init("\"test-1\"");
+    if !str_contains(init_resp, "protocolVersion") || !str_contains(init_resp, "oocut") {
+        print("FAIL: mcp_init frame mismatch\n");
+        return false;
+    }
+
+    let list_resp: String = render_mcp_tools_list("\"test-2\"");
+    if !str_contains(list_resp, "cut_fields") || !str_contains(list_resp, "cut_bytes") {
+        print("FAIL: mcp_tools_list frame mismatch\n");
+        return false;
+    }
+    if !str_contains(list_resp, "cut_characters") || !str_contains(list_resp, "cut_slice") {
+        print("FAIL: mcp_tools_list tools missing\n");
+        return false;
+    }
+    return true;
+}
+
+pub fn run_ipc_tests() -> Bool {
+    print("Running oocut IPC tests...\n");
+    if !test_json_field() {
+        return false;
+    }
+    print("  ✓ json_field tests passed\n");
+
+    if !test_cut_opts() {
+        return false;
+    }
+    print("  ✓ cut_opts tests passed\n");
+
+    if !test_mcp_frames() {
+        return false;
+    }
+    print("  ✓ mcp_frames tests passed\n");
+
+    return true;
+}

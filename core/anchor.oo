@@ -1,0 +1,177 @@
+// # oocut Core Test Anchor
+//
+// Logline: Comprehensive verification anchor for range parsing, byte/char/field cutting, and demo pipelines.
+//
+// Setup: Demands no ambient authority; exercises core algorithms in isolation.
+//
+// Beats:
+//   1. Verify interval token parsing and complement range matching.
+//   2. Verify byte extraction and UTF-8 multibyte character slicing.
+//   3. Verify delimiter-aware field cutting with suppression and custom output separators.
+//   4. Deliver unified core test runner returning boolean status.
+
+import "core/cut_types.oo";
+import "core/range_parser.oo";
+import "core/byte_cutter.oo";
+import "core/char_cutter.oo";
+import "core/field_cutter.oo";
+import "core/cut_engine.oo";
+import "core/cut_demo.oo";
+
+pub fn test_range_parser() -> Bool {
+    let r1: CutRange = parse_range_token("5");
+    if r1.start_idx != 5 || r1.end_idx != 5 || !r1.is_single {
+        print("FAIL: parse_range_token single index\n");
+        return false;
+    }
+
+    let r2: CutRange = parse_range_token("2-6");
+    if r2.start_idx != 2 || r2.end_idx != 6 || r2.is_single {
+        print("FAIL: parse_range_token bounded range\n");
+        return false;
+    }
+
+    let r3: CutRange = parse_range_token("-4");
+    if r3.start_idx != 1 || r3.end_idx != 4 {
+        print("FAIL: parse_range_token prefix range\n");
+        return false;
+    }
+
+    let r4: CutRange = parse_range_token("7-");
+    if r4.start_idx != 7 || r4.end_idx != -1 {
+        print("FAIL: parse_range_token suffix range\n");
+        return false;
+    }
+
+    let list_ranges: List[CutRange] = parse_range_list("1,3-5,8-");
+    if list_len(list_ranges) != 3 {
+        print("FAIL: parse_range_list count mismatch\n");
+        return false;
+    }
+
+    if !idx_matches_ranges(1, list_ranges, false) {
+        print("FAIL: idx 1 should match\n");
+        return false;
+    }
+    if idx_matches_ranges(2, list_ranges, false) {
+        print("FAIL: idx 2 should not match\n");
+        return false;
+    }
+    if !idx_matches_ranges(4, list_ranges, false) {
+        print("FAIL: idx 4 should match\n");
+        return false;
+    }
+    if !idx_matches_ranges(10, list_ranges, false) {
+        print("FAIL: idx 10 should match\n");
+        return false;
+    }
+    if idx_matches_ranges(1, list_ranges, true) {
+        print("FAIL: complement idx 1 should not match\n");
+        return false;
+    }
+    if !idx_matches_ranges(2, list_ranges, true) {
+        print("FAIL: complement idx 2 should match\n");
+        return false;
+    }
+    return true;
+}
+
+pub fn test_byte_cutter() -> Bool {
+    let ranges: List[CutRange] = parse_range_list("1-3,5");
+    let res: String = cut_line_bytes("abcdefgh", ranges, false, "");
+    if res != "abce" {
+        print("FAIL: cut_line_bytes mismatch: " + res + "\n");
+        return false;
+    }
+
+    let res_comp: String = cut_line_bytes("abcdefgh", ranges, true, "");
+    if res_comp != "dfgh" {
+        print("FAIL: cut_line_bytes complement mismatch: " + res_comp + "\n");
+        return false;
+    }
+
+    let res_delim: String = cut_line_bytes("abcdefgh", ranges, false, ":");
+    if res_delim != "abc:e" {
+        print("FAIL: cut_line_bytes with out_delim mismatch: " + res_delim + "\n");
+        return false;
+    }
+    return true;
+}
+
+pub fn test_char_cutter() -> Bool {
+    let ranges: List[CutRange] = parse_range_list("1,3-4");
+    let res: String = cut_line_chars("αβγδε", ranges, false, "");
+    if res != "αγδ" {
+        print("FAIL: cut_line_chars UTF-8 mismatch: " + res + "\n");
+        return false;
+    }
+    return true;
+}
+
+pub fn test_field_cutter() -> Bool {
+    let ranges: List[CutRange] = parse_range_list("1,3");
+    let line: String = "alpha:beta:gamma:delta";
+    let res: FieldCutResult = cut_line_fields(line, ranges, 58, false, false, ",");
+    if res.suppress || res.output != "alpha,gamma" {
+        print("FAIL: cut_line_fields mismatch: " + res.output + "\n");
+        return false;
+    }
+
+    let nodelim: String = "plain line without colon";
+    let r_supp: FieldCutResult = cut_line_fields(nodelim, ranges, 58, false, true, "");
+    if !r_supp.suppress {
+        print("FAIL: only_delimited should suppress line\n");
+        return false;
+    }
+
+    let r_pass: FieldCutResult = cut_line_fields(nodelim, ranges, 58, false, false, "");
+    if r_pass.suppress || r_pass.output != nodelim {
+        print("FAIL: default should pass through un-delimited line\n");
+        return false;
+    }
+    return true;
+}
+
+pub fn test_cut_engine_and_demo() -> Bool {
+    let demo_res: CutResult = build_demo_result();
+    if demo_res.line_count != 5 {
+        print("FAIL: demo_res line count mismatch\n");
+        return false;
+    }
+    let first_line: String = list_get(demo_res.lines, 0);
+    if first_line != "root -> /root -> /bin/bash" {
+        print("FAIL: demo first line mismatch: " + first_line + "\n");
+        return false;
+    }
+    return true;
+}
+
+pub fn run_core_tests() -> Bool {
+    print("Running oocut core tests...\n");
+    if !test_range_parser() {
+        return false;
+    }
+    print("  ✓ range_parser tests passed\n");
+
+    if !test_byte_cutter() {
+        return false;
+    }
+    print("  ✓ byte_cutter tests passed\n");
+
+    if !test_char_cutter() {
+        return false;
+    }
+    print("  ✓ char_cutter tests passed\n");
+
+    if !test_field_cutter() {
+        return false;
+    }
+    print("  ✓ field_cutter tests passed\n");
+
+    if !test_cut_engine_and_demo() {
+        return false;
+    }
+    print("  ✓ cut_engine & demo tests passed\n");
+
+    return true;
+}

@@ -1,0 +1,66 @@
+// # oocut JSON Serialization Subsystem
+//
+// Logline: Serializes stream extraction results, line arrays, and demo structures to JSON.
+//
+// Setup: Demands no ambient authority; formats plain JSON strings with standard escaping.
+//
+// Beats:
+//   1. Escape special control characters in string literals for JSON compliance.
+//   2. Serialize extracted line arrays into JSON string lists.
+//   3. Deliver structured result_to_json payload with execution metrics.
+//   4. Deliver demo_to_json payload for MCP and CLI JSON flags.
+
+import "core/cut_engine.oo";
+
+fn escape_json(s: String) -> String {
+    let mut out: String = "";
+    let n: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < n {
+        let ch: Int = byte_at(s, i);
+        if ch == 34 {
+            out = out + "\\\"";
+        } else if ch == 92 {
+            out = out + "\\\\";
+        } else if ch == 10 {
+            out = out + "\\n";
+        } else if ch == 13 {
+            out = out + "\\r";
+        } else if ch == 9 {
+            out = out + "\\t";
+        } else {
+            out = out + str_slice(s, i, i + 1);
+        }
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn result_to_json(res: CutResult) -> String {
+    let mut out: String = "{\n";
+    out = out + "  \"tool\": \"oocut\",\n";
+    out = out + "  \"version\": \"0.2.0\",\n";
+    out = out + "  \"mode\": \"" + escape_json(res.mode) + "\",\n";
+    out = out + "  \"line_count\": " + to_string(res.line_count) + ",\n";
+    out = out + "  \"lines\": [\n";
+
+    let n: Int = res.line_count;
+    let mut i: Int = 0;
+    while i < n {
+        let line: String = list_get(res.lines, i);
+        out = out + "    \"" + escape_json(line) + "\"";
+        if i + 1 < n {
+            out = out + ",";
+        }
+        out = out + "\n";
+        i = i + 1;
+    }
+
+    out = out + "  ]\n";
+    out = out + "}";
+    return out;
+}
+
+pub fn demo_to_json(res: CutResult) -> String {
+    return result_to_json(res);
+}

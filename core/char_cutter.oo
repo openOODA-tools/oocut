@@ -1,0 +1,41 @@
+// # oocut Character Slicing Engine
+//
+// Logline: Extracts logical character positions and ranges from text lines with full Unicode preservation.
+//
+// Setup: Demands no ambient authority; operates on logical character offsets using native string slicing.
+//
+// Beats:
+//   1. Traverse logical character offsets across the line length.
+//   2. Match 1-based character indices against CutRange specifications.
+//   3. Insert optional output delimiters across disjoint range boundaries.
+//   4. Assemble and return extracted character slices.
+
+import "core/cut_types.oo";
+import "core/range_parser.oo";
+
+pub fn cut_line_chars(
+    line: String,
+    ranges: List[CutRange],
+    complement: Bool,
+    out_delim: String
+) -> String {
+    let n: Int = chars_len(line);
+    let mut out: String = "";
+    let mut prev_idx: Int = -1;
+    let has_delim: Bool = chars_len(out_delim) > 0;
+
+    let mut i: Int = 0;
+    while i < n {
+        let idx: Int = i + 1;
+        if idx_matches_ranges(idx, ranges, complement) {
+            if has_delim && prev_idx != -1 && idx > prev_idx + 1 {
+                out = out + out_delim;
+            }
+            out = out + str_slice(line, i, i + 1);
+            prev_idx = idx;
+        }
+        i = i + 1;
+    }
+
+    return out;
+}

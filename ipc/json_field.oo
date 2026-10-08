@@ -1,0 +1,152 @@
+// # oocut JSON Field Extractor
+//
+// Logline: Character-safe JSON field extraction routines for streaming JSON-RPC payloads.
+//
+// Setup: Demands no ambient authority; performs Unicode-safe string scanning and parsing.
+//
+// Beats:
+//   1. Escape raw string content for JSON payload encoding.
+//   2. Unescape JSON string representations into raw strings.
+//   3. Extract string properties by key identifier from JSON objects.
+//   4. Extract boolean properties with customizable default values.
+
+pub fn json_escape(s: String) -> String {
+    let mut out: String = "";
+    let n: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < n {
+        let ch: String = str_slice(s, i, i + 1);
+        if ch == "\"" {
+            out = out + "\\\"";
+        } else if ch == "\\" {
+            out = out + "\\\\";
+        } else if ch == "\n" {
+            out = out + "\\n";
+        } else if ch == "\r" {
+            out = out + "\\r";
+        } else if ch == "\t" {
+            out = out + "\\t";
+        } else {
+            out = out + ch;
+        }
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn json_unescape(s: String) -> String {
+    let mut out: String = "";
+    let n: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < n {
+        let ch: String = str_slice(s, i, i + 1);
+        if ch == "\\" && i + 1 < n {
+            let next: String = str_slice(s, i + 1, i + 2);
+            if next == "\"" {
+                out = out + "\"";
+                i = i + 2;
+            } else if next == "\\" {
+                out = out + "\\";
+                i = i + 2;
+            } else if next == "n" {
+                out = out + "\n";
+                i = i + 2;
+            } else if next == "r" {
+                out = out + "\r";
+                i = i + 2;
+            } else if next == "t" {
+                out = out + "\t";
+                i = i + 2;
+            } else {
+                out = out + ch;
+                i = i + 1;
+            }
+        } else {
+            out = out + ch;
+            i = i + 1;
+        }
+    }
+    return out;
+}
+
+pub fn find_sub_char(haystack: String, needle: String) -> Int {
+    let nh: Int = chars_len(haystack);
+    let nn: Int = chars_len(needle);
+    if nn == 0 {
+        return 0;
+    }
+    if nn > nh {
+        return -1;
+    }
+    let mut i: Int = 0;
+    while i <= nh - nn {
+        if str_slice(haystack, i, i + nn) == needle {
+            return i;
+        }
+        i = i + 1;
+    }
+    return -1;
+}
+
+pub fn extract_json_str(payload: String, key: String) -> String {
+    let pat: String = "\"" + key + "\"";
+    let pos: Int = find_sub_char(payload, pat);
+    if pos < 0 {
+        return "";
+    }
+    let n: Int = chars_len(payload);
+    let mut i: Int = pos + chars_len(pat);
+    let mut scanning: Bool = true;
+    while i < n && scanning {
+        let ch: String = str_slice(payload, i, i + 1);
+        if ch == " " || ch == ":" || ch == "\t" {
+            i = i + 1;
+        } else {
+            scanning = false;
+        }
+    }
+    if i >= n {
+        return "";
+    }
+    if str_slice(payload, i, i + 1) == "\"" {
+        let start: Int = i + 1;
+        let mut end_pos: Int = -1;
+        let mut j: Int = start;
+        while j < n {
+            let ch: String = str_slice(payload, j, j + 1);
+            let prev: String = str_slice(payload, j - 1, j);
+            if ch == "\"" && prev != "\\" {
+                end_pos = j;
+                j = n;
+            }
+            j = j + 1;
+        }
+        if end_pos >= start {
+            return json_unescape(str_slice(payload, start, end_pos));
+        }
+        return "";
+    }
+    let start: Int = i;
+    let mut end_tok: Int = start;
+    let mut val_scan: Bool = true;
+    while end_tok < n && val_scan {
+        let ch: String = str_slice(payload, end_tok, end_tok + 1);
+        if ch == "," || ch == "}" || ch == "\n" || ch == "\r" {
+            val_scan = false;
+        } else {
+            end_tok = end_tok + 1;
+        }
+    }
+    return str_trim(str_slice(payload, start, end_tok));
+}
+
+pub fn extract_json_bool(payload: String, key: String, default_val: Bool) -> Bool {
+    let s: String = extract_json_str(payload, key);
+    if s == "true" {
+        return true;
+    }
+    if s == "false" {
+        return false;
+    }
+    return default_val;
+}

@@ -4,7 +4,7 @@
 # "Removes oocut binary, package installations, and cache."
 #
 # Usage:
-#   curl -fsSL https://openooda-toocut.github.io/oocut/uninstall.sh | bash
+#   curl -fsSL https://openooda-tools.github.io/oocut/uninstall.sh | bash
 #   or: ./uninstall.sh [options]
 #
 # Options:

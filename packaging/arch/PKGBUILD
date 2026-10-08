@@ -1,7 +1,7 @@
 # Maintainer: openOODA-tools <ops@openooda.org>
 pkgname=oocut-bin
 _pkgname=oocut
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="Byte, character, and delimiter-aware field extractor with negative-index slicing."
 arch=('x86_64')

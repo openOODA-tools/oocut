@@ -1,52 +1,123 @@
 // # oocut Main Entry Point
 //
-// Logline: Byte, character, and delimiter-aware field extractor with negative-index slicing.
+// Logline: Sovereign column, byte, character, and field stream extractor with dual-surface CLI and MCP stdio interfaces.
 //
-// Setup: Demands explicit capability tokens and standard argument list.
+// Setup: Demands &FsReadCap, &ProcessCap, and &EnvCap tokens for capability-bounded stream processing.
 //
 // Beats:
-//   1. Parse command-line options and dispatch --help, --version, or --mcp.
-//   2. Execute capability-bounded oocut operations.
-//   3. Format and output structured results to standard output.
+//   1. Parse command-line options and dispatch --help, --version, --test, or --mcp.
+//   2. Dispatch demonstration execution when --demo is specified.
+//   3. Read stream content from filesystem path or standard input.
+//   4. Slice byte, character, or field ranges and format structured output.
 
-fn render_help() -> String {
-    return "oocut 0.1.0 (openOODA sovereign search & inspection)\n"
-        + "usage: oocut [options] [ARGUMENTS]...\n\n"
-        + "Byte, character, and delimiter-aware field extractor with negative-index slicing.\n\n"
-        + "Options:\n"
-        + "  -h, --help           display this help and exit\n"
-        + "  -v, --version        output version information and exit\n"
-        + "      --json           output formatted as JSON Lines\n"
-        + "      --color <WHEN>   colorize output: auto, always, never [default: auto]\n"
-        + "      --theme <NAME>   override active oote palette\n"
-        + "      --mcp            run as Model Context Protocol stdio server\n";
-}
+import "core/cut_engine.oo";
+import "core/cut_demo.oo";
+import "render/cut_theme.oo";
+import "render/cut_view.oo";
+import "render/cut_json.oo";
+import "ipc/cut_opts.oo";
+import "ipc/mcp_serve.oo";
+import "anchor.oo";
 
 fn render_version() -> String {
-    return "oocut 0.1.0 (openOODA sovereign search & inspection)\n";
+    return "oocut 0.2.0 (openOODA sovereign field & column extractor)\n";
 }
 
-fn main(args: List[String]) -> Int {
-    let num_args: Int = list_len(args);
-    let mut i: Int = 0;
+fn read_all_stdin(fr: &FsReadCap) -> String {
+    let mut buf: String = "";
+    let mut reading: Bool = true;
+    while reading {
+        let r: Result[String, String] = oo_read_stdin_chunk(fr, 8192);
+        if !r.is_ok() {
+            reading = false;
+        } else {
+            let chunk: String = match r { Ok(s) => s, Err(_) => "" };
+            if chars_len(chunk) == 0 {
+                reading = false;
+            } else {
+                buf = buf + chunk;
+            }
+        }
+    }
+    return buf;
+}
 
-    while i < num_args {
-        let arg: String = list_get(args, i);
-        if arg == "-h" || arg == "--help" {
-            print(render_help());
-            return 0;
-        }
-        if arg == "-v" || arg == "--version" {
-            print(render_version());
-            return 0;
-        }
-        if arg == "--mcp" {
-            print("{\"jsonrpc\":\"2.0\",\"result\":{\"status\":\"ready\",\"tool\":\"oocut\"}}\n");
-            return 0;
-        }
-        i = i + 1;
+fn main(
+    fr: &FsReadCap,
+    pr: &ProcessCap,
+    env: &EnvCap,
+    args: List[String]
+) -> Int {
+    let parsed: ParsedCut = parse_cut_args(args);
+
+    if parsed.show_help {
+        print(render_cut_help());
+        return 0;
     }
 
-    print("oocut: sovereign capability-bounded utility ready\n");
+    if parsed.show_version {
+        print(render_version());
+        return 0;
+    }
+
+    if parsed.run_mcp {
+        run_mcp_server(fr);
+        return 0;
+    }
+
+    if parsed.run_test {
+        if !run_all_tests() {
+            print("oocut: internal anchor tests FAILED\n");
+            return 1;
+        }
+        print("oocut: internal anchor tests PASSED\n");
+        return 0;
+    }
+
+    if chars_len(parsed.parse_error) > 0 {
+        print("oocut: " + parsed.parse_error + "\nTry 'oocut --help' for more information.\n");
+        return 1;
+    }
+
+    if parsed.config.demo_mode {
+        let res: CutResult = build_demo_result();
+        if parsed.config.json_output {
+            print(demo_to_json(res) + "\n");
+        } else {
+            let th: ThemePalette = get_theme(parsed.config.theme);
+            print(render_demo_view(res, th));
+        }
+        return 0;
+    }
+
+    if list_len(parsed.config.ranges) == 0 {
+        print("oocut: you must specify a list of bytes, characters, or fields\nTry 'oocut --help' or 'oocut --demo' for more information.\n");
+        return 1;
+    }
+
+    let mut content: String = "";
+    if parsed.config.input_file == "-" || chars_len(parsed.config.input_file) == 0 {
+        content = read_all_stdin(fr);
+        if chars_len(content) == 0 {
+            print("oocut: missing operand\nTry 'oocut --help' or 'oocut --demo' for more information.\n");
+            return 1;
+        }
+    } else {
+        let r: Result[String, String] = read_file(fr, parsed.config.input_file);
+        if !r.is_ok() {
+            print("oocut: " + parsed.config.input_file + ": No such file or directory\n");
+            return 1;
+        }
+        content = match r { Ok(v) => v, Err(_) => "" };
+    }
+
+    let res: CutResult = execute_cut(content, parsed.config);
+
+    if parsed.config.json_output {
+        print(result_to_json(res) + "\n");
+    } else {
+        print(render_cut_output(res, parsed.config.zero_terminated));
+    }
+
     return 0;
 }

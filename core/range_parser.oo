@@ -1,0 +1,120 @@
+// # oocut Range & Selection Parser
+//
+// Logline: Parser and matcher for POSIX byte, character, and field index interval specifications.
+//
+// Setup: Demands no ambient authority; parses comma-separated range strings into structured CutRange intervals.
+//
+// Beats:
+//   1. Parse decimal integers from substring slices.
+//   2. Parse bounded (N-M), prefix (-M), suffix (N-), and point (N) intervals.
+//   3. Separate multiple comma-delimited interval tokens into CutRange lists.
+//   4. Evaluate element containment with optional complement inversion.
+
+import "core/cut_types.oo";
+
+fn parse_pos_int(s: String) -> Int {
+    let n: Int = chars_len(s);
+    let mut val: Int = 0;
+    let mut i: Int = 0;
+    while i < n {
+        let ch: Int = byte_at(s, i);
+        if ch >= 48 && ch <= 57 {
+            val = val * 10 + (ch - 48);
+        }
+        i = i + 1;
+    }
+    return val;
+}
+
+pub fn parse_range_token(tok: String) -> CutRange {
+    let t: String = str_trim(tok);
+    let n: Int = chars_len(t);
+    if n == 0 {
+        return CutRange { start_idx: 0, end_idx: 0, is_single: true };
+    }
+
+    if str_contains(t, "-") {
+        let dash: Int = str_index_of(t, "-");
+        if dash == 0 {
+            // "-M" -> 1 through M
+            let end_str: String = str_slice(t, 1, n);
+            let end_val: Int = parse_pos_int(end_str);
+            return CutRange { start_idx: 1, end_idx: end_val, is_single: false };
+        }
+        if dash == n - 1 {
+            // "N-" -> N through infinity (-1)
+            let start_str: String = str_slice(t, 0, dash);
+            let start_val: Int = parse_pos_int(start_str);
+            return CutRange { start_idx: start_val, end_idx: -1, is_single: false };
+        }
+        // "N-M"
+        let start_str: String = str_slice(t, 0, dash);
+        let end_str: String = str_slice(t, dash + 1, n);
+        let start_val: Int = parse_pos_int(start_str);
+        let end_val: Int = parse_pos_int(end_str);
+        return CutRange { start_idx: start_val, end_idx: end_val, is_single: false };
+    }
+
+    let val: Int = parse_pos_int(t);
+    return CutRange { start_idx: val, end_idx: val, is_single: true };
+}
+
+pub fn parse_range_list(spec: String) -> List[CutRange] {
+    let mut out: List[CutRange] = list_new();
+    let n: Int = chars_len(spec);
+    let mut start: Int = 0;
+    let mut i: Int = 0;
+
+    while i < n {
+        let ch: Int = byte_at(spec, i);
+        if ch == 44 || ch == 32 {
+            let tok: String = str_trim(str_slice(spec, start, i));
+            if chars_len(tok) > 0 {
+                out = list_push(out, parse_range_token(tok));
+            }
+            start = i + 1;
+        }
+        i = i + 1;
+    }
+
+    if start < n {
+        let tok: String = str_trim(str_slice(spec, start, n));
+        if chars_len(tok) > 0 {
+            out = list_push(out, parse_range_token(tok));
+        }
+    }
+
+    return out;
+}
+
+pub fn idx_matches_ranges(idx: Int, ranges: List[CutRange], complement: Bool) -> Bool {
+    let num_ranges: Int = list_len(ranges);
+    if num_ranges == 0 {
+        return !complement;
+    }
+
+    let mut matched: Bool = false;
+    let mut i: Int = 0;
+    while i < num_ranges {
+        let r: CutRange = list_get(ranges, i);
+        if r.is_single {
+            if idx == r.start_idx {
+                matched = true;
+                i = num_ranges;
+            }
+        } else {
+            let ge_start: Bool = idx >= r.start_idx;
+            let le_end: Bool = if r.end_idx == -1 { true } else { idx <= r.end_idx };
+            if ge_start && le_end {
+                matched = true;
+                i = num_ranges;
+            }
+        }
+        i = i + 1;
+    }
+
+    if complement {
+        return !matched;
+    }
+    return matched;
+}

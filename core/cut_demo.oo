@@ -1,0 +1,43 @@
+// # oocut Demo Showcase Fixtures
+//
+// Logline: Synthetic dataset generators and demonstration extraction pipelines.
+//
+// Setup: Demands no ambient authority; constructs deterministic sample datasets and execution results.
+//
+// Beats:
+//   1. Construct synthetic Unix passwd file fixture.
+//   2. Construct synthetic TSV cluster telemetry fixture.
+//   3. Execute sample field extraction pipeline with custom output delimiter.
+//   4. Deliver demonstration CutResult for CLI and MCP presentation.
+
+import "core/cut_types.oo";
+import "core/range_parser.oo";
+import "core/cut_engine.oo";
+
+pub fn build_demo_passwd() -> String {
+    let mut out: String = "root:x:0:0:root:/root:/bin/bash\n";
+    out = out + "daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\n";
+    out = out + "bin:x:2:2:bin:/bin:/usr/sbin/nologin\n";
+    out = out + "sys:x:3:3:sys:/dev:/usr/sbin/nologin\n";
+    out = out + "agent:x:1000:1000:Antigravity Agent:/home/agent:/bin/oosh\n";
+    return out;
+}
+
+pub fn build_demo_tsv() -> String {
+    let mut out: String = "HOST\tROLE\tCPU\tMEM\tSTATUS\n";
+    out = out + "node-01\tingress\t12%\t4.2GB\tOK\n";
+    out = out + "node-02\tcompute\t88%\t28.1GB\tWARN\n";
+    out = out + "node-03\tcompute\t94%\t30.4GB\tALERT\n";
+    out = out + "node-04\tstorage\t32%\t12.0GB\tOK\n";
+    return out;
+}
+
+pub fn build_demo_result() -> CutResult {
+    let mut cfg: CutConfig = default_cut_config();
+    cfg.mode = "fields";
+    cfg.delimiter = 58; // ':'
+    cfg.has_custom_delim = true;
+    cfg.output_delimiter = " -> ";
+    cfg.ranges = parse_range_list("1,6,7");
+    return execute_cut(build_demo_passwd(), cfg);
+}

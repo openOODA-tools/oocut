@@ -1,0 +1,41 @@
+// # oocut Byte Slicing Engine
+//
+// Logline: Extracts precise 1-based byte positions and ranges from text lines.
+//
+// Setup: Demands no ambient authority; operates on raw byte indices within immutable strings.
+//
+// Beats:
+//   1. Traverse line character buffers evaluating 1-based byte indices.
+//   2. Apply range filters and optional complement selection logic.
+//   3. Insert optional output delimiters across disjoint range boundaries.
+//   4. Assemble and return extracted byte stream slices.
+
+import "core/cut_types.oo";
+import "core/range_parser.oo";
+
+pub fn cut_line_bytes(
+    line: String,
+    ranges: List[CutRange],
+    complement: Bool,
+    out_delim: String
+) -> String {
+    let n: Int = chars_len(line);
+    let mut out: String = "";
+    let mut prev_idx: Int = -1;
+    let has_delim: Bool = chars_len(out_delim) > 0;
+
+    let mut i: Int = 0;
+    while i < n {
+        let idx: Int = i + 1;
+        if idx_matches_ranges(idx, ranges, complement) {
+            if has_delim && prev_idx != -1 && idx > prev_idx + 1 {
+                out = out + out_delim;
+            }
+            out = out + str_slice(line, i, i + 1);
+            prev_idx = idx;
+        }
+        i = i + 1;
+    }
+
+    return out;
+}

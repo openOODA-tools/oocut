@@ -1,0 +1,64 @@
+// # oocut Terminal View Formatter
+//
+// Logline: Formatted terminal card, demonstration pipeline, and human-readable visual layouts.
+//
+// Setup: Demands no ambient authority; formats plain strings decorated with ThemePalette colors.
+//
+// Beats:
+//   1. Construct decorative horizontal rule separators.
+//   2. Render demonstration showcase header with pipeline parameters.
+//   3. Format extracted stream lines with line numbering and syntax styling.
+//   4. Deliver complete terminal demonstration view.
+
+import "core/cut_engine.oo";
+import "render/cut_theme.oo";
+
+fn hr(ch: String, len_n: Int) -> String {
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < len_n {
+        out = out + ch;
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn render_demo_view(res: CutResult, th: ThemePalette) -> String {
+    let mut out: String = "";
+    let bar: String = hr("─", 68);
+
+    out = out + th.accent + "┌" + bar + "┐\n" + th.reset;
+    out = out + th.accent + "│  " + th.primary + "oocut 0.2.0"
+        + th.secondary + " // Sovereign Field & Column Stream Extractor"
+        + th.accent + "         │\n" + th.reset;
+    out = out + th.accent + "├" + bar + "┤\n" + th.reset;
+
+    out = out + th.accent + "│  " + th.muted + "Pipeline: "
+        + th.primary + "passwd fields (1, 6, 7)"
+        + th.muted + "  Delimiter: " + th.secondary + "':'"
+        + th.muted + "  Separator: " + th.secondary + "' -> '"
+        + th.accent + "  │\n" + th.reset;
+
+    out = out + th.accent + "│  " + th.muted + "Total Lines Extracted: "
+        + th.primary + to_string(res.line_count)
+        + th.muted + "       Mode: " + th.secondary + res.mode
+        + th.accent + "                   │\n" + th.reset;
+
+    out = out + th.accent + "├" + bar + "┤\n" + th.reset;
+
+    let n: Int = res.line_count;
+    let mut i: Int = 0;
+    while i < n {
+        let line: String = list_get(res.lines, i);
+        let num_str: String = to_string(i + 1);
+        let pad: String = if chars_len(num_str) == 1 { " " } else { "" };
+
+        out = out + th.accent + "│  "
+            + th.muted + "[" + pad + num_str + "] "
+            + th.primary + line + "\n" + th.reset;
+        i = i + 1;
+    }
+
+    out = out + th.accent + "└" + bar + "┘\n" + th.reset;
+    return out;
+}

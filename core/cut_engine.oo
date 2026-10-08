@@ -1,0 +1,115 @@
+// # oocut Stream Processing Engine
+//
+// Logline: Unified multi-line stream cutter dispatching byte, character, and field extractors.
+//
+// Setup: Demands no ambient authority; iterates over stream lines with configurable delimiters.
+//
+// Beats:
+//   1. Declare CutResult container holding extracted lines and execution metrics.
+//   2. Split input text stream by newline or NUL line separators.
+//   3. Dispatch lines to byte, character, or field cutter subsystems.
+//   4. Deliver structured CutResult and formatted output text streams.
+
+import "core/cut_types.oo";
+import "core/byte_cutter.oo";
+import "core/char_cutter.oo";
+import "core/field_cutter.oo";
+
+pub type CutResult = struct {
+    lines: List[String],
+    line_count: Int,
+    mode: String
+};
+
+fn split_lines(content: String, zero_term: Bool) -> List[String] {
+    let mut out: List[String] = list_new();
+    let n: Int = chars_len(content);
+    if n == 0 {
+        return out;
+    }
+
+    let sep_byte: Int = if zero_term { 0 } else { 10 };
+    let mut start: Int = 0;
+    let mut i: Int = 0;
+
+    while i < n {
+        if byte_at(content, i) == sep_byte {
+            let mut line: String = str_slice(content, start, i);
+            if !zero_term && chars_len(line) > 0 && byte_at(line, chars_len(line) - 1) == 13 {
+                line = str_slice(line, 0, chars_len(line) - 1);
+            }
+            out = list_push(out, line);
+            start = i + 1;
+        }
+        i = i + 1;
+    }
+
+    if start < n {
+        let mut line: String = str_slice(content, start, n);
+        if !zero_term && chars_len(line) > 0 && byte_at(line, chars_len(line) - 1) == 13 {
+            line = str_slice(line, 0, chars_len(line) - 1);
+        }
+        out = list_push(out, line);
+    }
+
+    return out;
+}
+
+pub fn execute_cut(content: String, cfg: CutConfig) -> CutResult {
+    let raw_lines: List[String] = split_lines(content, cfg.zero_terminated);
+    let num_raw: Int = list_len(raw_lines);
+    let mut out_lines: List[String] = list_new();
+
+    let mut i: Int = 0;
+    while i < num_raw {
+        let line: String = list_get(raw_lines, i);
+        if cfg.mode == "bytes" {
+            let processed: String = cut_line_bytes(
+                line,
+                cfg.ranges,
+                cfg.complement,
+                cfg.output_delimiter
+            );
+            out_lines = list_push(out_lines, processed);
+        } else if cfg.mode == "chars" {
+            let processed: String = cut_line_chars(
+                line,
+                cfg.ranges,
+                cfg.complement,
+                cfg.output_delimiter
+            );
+            out_lines = list_push(out_lines, processed);
+        } else {
+            let fr: FieldCutResult = cut_line_fields(
+                line,
+                cfg.ranges,
+                cfg.delimiter,
+                cfg.complement,
+                cfg.only_delimited,
+                cfg.output_delimiter
+            );
+            if !fr.suppress {
+                out_lines = list_push(out_lines, fr.output);
+            }
+        }
+        i = i + 1;
+    }
+
+    return CutResult {
+        lines: out_lines,
+        line_count: list_len(out_lines),
+        mode: cfg.mode
+    };
+}
+
+pub fn render_cut_output(res: CutResult, zero_term: Bool) -> String {
+    let sep: String = if zero_term { "\x00" } else { "\n" };
+    let mut out: String = "";
+    let n: Int = res.line_count;
+    let mut i: Int = 0;
+    while i < n {
+        out = out + list_get(res.lines, i) + sep;
+        i = i + 1;
+    }
+    return out;
+}

@@ -1,0 +1,7 @@
+Package: oocut
+Version: 0.2.0-1
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: openOODA-tools <ops@openooda.org>
+Description: Sovereign column, byte, character, and field stream extractor in pure openOODA.

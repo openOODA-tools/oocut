@@ -1,0 +1,48 @@
+// # oocut Data Types & Configurations
+//
+// Logline: Data structures representing range intervals, extraction modes, and runtime execution configurations.
+//
+// Setup: Demands no ambient authority; defines plain immutable value records.
+//
+// Beats:
+//   1. Declare CutRange record modeling bounded and open-ended 1-based intervals.
+//   2. Declare CutConfig record capturing CLI options, delimiters, and mode switches.
+//   3. Deliver default_cut_config factory initializing safe standard defaults.
+
+pub type CutRange = struct {
+    start_idx: Int,
+    end_idx: Int,
+    is_single: Bool
+};
+
+pub type CutConfig = struct {
+    mode: String,
+    ranges: List[CutRange],
+    delimiter: Int,
+    has_custom_delim: Bool,
+    output_delimiter: String,
+    only_delimited: Bool,
+    complement: Bool,
+    zero_terminated: Bool,
+    json_output: Bool,
+    demo_mode: Bool,
+    theme: String,
+    input_file: String
+};
+
+pub fn default_cut_config() -> CutConfig {
+    return CutConfig {
+        mode: "fields",
+        ranges: list_new(),
+        delimiter: 9,
+        has_custom_delim: false,
+        output_delimiter: "",
+        only_delimited: false,
+        complement: false,
+        zero_terminated: false,
+        json_output: false,
+        demo_mode: false,
+        theme: "ember",
+        input_file: ""
+    };
+}
