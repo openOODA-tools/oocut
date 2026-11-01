@@ -21,3 +21,10 @@
 match --test
 match --demo
 match --demo --json
+match -b 1-3
+match -b 2,4-5
+match -c 1,3
+match -f 1,4 -d :
+match -f 1,3 -d : "--output-delimiter= | "
+match -f 1 -d : -s
+match -f 2 -d : --complement
