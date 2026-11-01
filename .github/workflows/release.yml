@@ -48,9 +48,19 @@ jobs:
         run: |
           if ! command -v cut >/dev/null 2>&1; then
             sudo apt-get update -qq
-            sudo apt-get install -y -qq cut
+            sudo apt-get install -y -qq coreutils
           fi
-          command -v cut >/dev/null 2>&1 || { echo "::error::the upstream tool cut is required for the parity gate"; exit 1; }
+          if ! command -v cut >/dev/null 2>&1; then
+            for cand in cut ; do
+              for d in /usr/local/bin /usr/games /usr/bin /bin /usr/sbin /sbin; do
+                if [ -x "$d/$cand" ]; then
+                  sudo ln -sf "$d/$cand" /usr/local/bin/cut
+                  break 2;
+                fi
+              done
+            done
+          fi
+          command -v cut >/dev/null 2>&1 || { echo "::error::the upstream tool cut is required for the parity gate and the package coreutils does not put it on this runner"; exit 1; }
 
       - name: Build, verify, and test
         working-directory: ${{ github.workspace }}/oocut
