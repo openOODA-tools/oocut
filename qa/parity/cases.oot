@@ -1,0 +1,41 @@
+# Parity cases for oocut.
+# The tool replaces cut and must behave the same way.
+# upstream: cut
+# tool: dist/oocut
+#
+# A match case must produce the same stdout, the same stderr, and the same
+# exit code as the upstream tool. A differ case is a declared deviation: the
+# exit code must still be the same, but the output may differ.
+#
+# The upstream tool is the reference. A tool that is not a drop-in
+# replacement must fix the difference or declare the deviation here.
+#
+# The workflow installs the upstream tool. The parity runner reads this table
+# from the repository root and runs every case with the same arguments
+# against both tools. A case that the upstream tool does not understand is
+# skipped, because the upstream cannot be the reference there.
+#
+# The cases come from the test recipe of this repository, so they are the
+# arguments this tool already claims to accept.
+#
+# A case may be preceded by an input line. That line names the command that
+# makes the input of the case and its arguments. The runner pipes that command
+# into both tools, so a tool that works on a stream is compared on a stream.
+
+match --test
+match --demo
+match --demo --json
+input printf "abcdefgh\\n"
+match -b 1-3
+input printf "abcdefgh\\n"
+match -b 2,4-5
+input printf "αβγδε\\n"
+match -c 1,3
+input printf "u1:x:100:staff\\nu2:x:200:dev\\n"
+match -f 1,4 -d :
+input printf "a:b:c\\n"
+match -f 1,3 -d : "--output-delimiter= | "
+input printf "has:colon\\nplain line\\n"
+match -f 1 -d : -s
+input printf "one:two:three\\n"
+match -f 2 -d : --complement
