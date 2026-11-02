@@ -25,17 +25,17 @@
 match --test
 match --demo
 match --demo --json
-input printf abcdefgh\n
+input printf "abcdefgh\\n"
 match -b 1-3
-input printf abcdefgh\n
+input printf "abcdefgh\\n"
 match -b 2,4-5
-input printf αβγδε\n
+input printf "αβγδε\\n"
 match -c 1,3
-input printf u1:x:100:staff\nu2:x:200:dev\n
+input printf "u1:x:100:staff\\nu2:x:200:dev\\n"
 match -f 1,4 -d :
-input printf a:b:c\n
+input printf "a:b:c\\n"
 match -f 1,3 -d : "--output-delimiter= | "
-input printf "has:colon\nplain line\n"
+input printf "has:colon\\nplain line\\n"
 match -f 1 -d : -s
-input printf one:two:three\n
+input printf "one:two:three\\n"
 match -f 2 -d : --complement
