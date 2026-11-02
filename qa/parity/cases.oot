@@ -17,14 +17,25 @@
 #
 # The cases come from the test recipe of this repository, so they are the
 # arguments this tool already claims to accept.
+#
+# A case may be preceded by an input line. That line names the command that
+# makes the input of the case and its arguments. The runner pipes that command
+# into both tools, so a tool that works on a stream is compared on a stream.
 
 match --test
 match --demo
 match --demo --json
+input printf abcdefgh\n
 match -b 1-3
+input printf abcdefgh\n
 match -b 2,4-5
+input printf αβγδε\n
 match -c 1,3
+input printf u1:x:100:staff\nu2:x:200:dev\n
 match -f 1,4 -d :
+input printf a:b:c\n
 match -f 1,3 -d : "--output-delimiter= | "
+input printf "has:colon\nplain line\n"
 match -f 1 -d : -s
+input printf one:two:three\n
 match -f 2 -d : --complement
